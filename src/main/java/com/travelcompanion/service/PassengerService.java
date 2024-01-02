@@ -1,14 +1,13 @@
 package com.travelcompanion.service;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.travelcompanion.exceptions.DuplicateEmailException;
-import com.travelcompanion.exceptions.TravelCompanionExceptions;
 import com.travelcompanion.model.Passenger;
 import com.travelcompanion.repository.IPassengerDetailsRepository;
 
@@ -34,6 +33,7 @@ public class PassengerService implements IPassengerService{
 		try {
 			if (isEmailUnique(passenger.getEmailId())) {
 				System.out.println("Saving Data");
+				System.out.println(passenger.toString());
 				passengerRepository.save(passenger);
 	        } else {
 	        	throw new DuplicateEmailException("Email Registered ALready !! ");
@@ -46,19 +46,25 @@ public class PassengerService implements IPassengerService{
 	
 	@Override
 	public List<Passenger> getPassengerMatchings(String passengerId) {
-		Passenger passengerLookingForMatches = passengerRepository.findById(passengerId).get();
-		List<Passenger> passengers = passengerRepository.findAll();	
-
-		List<String> passengerIntrestsLookingForMatches = passengerLookingForMatches.getIntrests();
-		List<Passenger> likesForSpecificPassenger = passengers.stream()
-                .filter(eachPassenger -> (eachPassenger != passengerLookingForMatches && eachPassenger.getIntrests().retainAll(passengerIntrestsLookingForMatches)))
-                .collect(Collectors.toList());
-		System.out.println("likesForSpecificPassenger :: ");
-		likesForSpecificPassenger.forEach(System.out::println);
-			
 		
-		//Double matchingPercentage = calculateMatchingPercentage(likesForSpecificPassenger, disLikesForSpecificPassenger);
-		return likesForSpecificPassenger;
+		Passenger passengerLookingForMatches = passengerRepository.findById(passengerId).orElseThrow();;
+        List<String> passengerInterestsLookingForMatches = passengerLookingForMatches.getIntrests();
+
+        List<Passenger> matchingPassengers = passengerRepository.findAll().stream()
+		        .filter(passenger -> !passenger.equals(passengerLookingForMatches)) // Exclude the passengerLookingForMatches
+		        .filter(passenger -> hasCommonInterest(passenger.getIntrests(), passengerInterestsLookingForMatches))
+		        .collect(Collectors.toList());
+        
+        List<Passenger> finalMatches = new ArrayList<Passenger>();
+        for(int i=0; i< matchingPassengers.size();i++) {
+        	Passenger pass = matchingPassengers.get(i);
+        	if(!pass.getEmailId().equals(passengerLookingForMatches.getEmailId())) {
+        		finalMatches.add(pass);
+        	}
+        	
+        }
+        return finalMatches;
+		
 	}
 	
 	private boolean isEmailUnique(String email) {
@@ -67,15 +73,10 @@ public class PassengerService implements IPassengerService{
 	    return existingUser == null;
 	}
 
-//	private Double calculateMatchingPercentage(List<Passenger> likesCount, List<Passenger> disLikesCount) {
-//		
-//		System.out.println("List of Matching Passenegr Likes :");
-//		likesCount.forEach(System.out::println);
-//		
-//		System.out.println("List of Matching Passenegr DisLikes :");
-//		disLikesCount.forEach(System.out::println);
-//		return 0.0;
-//	}
+	private boolean hasCommonInterest(List<String> interests1, List<String> interests2) {
+        return interests1.stream().anyMatch(interests2::contains);
+    }
+
 	
 
 }
